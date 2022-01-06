@@ -124,7 +124,8 @@ def mean_difference(target, value, loss_type='L1', weights=None):
   elif loss_type == 'COSINE':
     return tf.losses.cosine_distance(target, value, weights=weights, axis=-1)
   elif loss_type == 'FRO':
-    return tf.norm(difference, ord='fro') / tf.norm(target, ord='fro')
+    # will be 'fro' when tensor is not a vector else 'euclidean'
+    return tf.norm(difference, ord='euclidean') / tf.norm(target, ord='euclidean')
   else:
     raise ValueError('Loss type ({}), must be '
                      '"L1", "L2", "FRO" or "COSINE"'.format(loss_type))
