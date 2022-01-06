@@ -123,10 +123,70 @@ def mean_difference(target, value, loss_type='L1', weights=None):
     return tf.reduce_mean(difference**2 * weights)
   elif loss_type == 'COSINE':
     return tf.losses.cosine_distance(target, value, weights=weights, axis=-1)
+  elif loss_type == 'FRO':
+    return tf.norm(difference, ord='fro') / tf.norm(target, ord='fro')
   else:
     raise ValueError('Loss type ({}), must be '
-                     '"L1", "L2", or "COSINE"'.format(loss_type))
+                     '"L1", "L2", "FRO" or "COSINE"'.format(loss_type))
 
+@gin.register
+class SpectralLossRave(Loss):
+  """Multi-scale spectrogram loss.
+
+  This is an implementation of the modified multi-scale spectogram loss defined in (Caillon et al., 2021)
+  """
+
+  def __init__(self,
+               fft_sizes=(2048, 1024, 512, 256, 128),
+               mag_weight=1.0,
+               logmag_weight=1.0,
+               name='spectral_loss_rave'):
+    """Constructor, set loss weights of various components.
+
+    Args:
+      fft_sizes: Compare spectrograms at each of this list of fft sizes. Each
+        spectrogram has a time-frequency resolution trade-off based on fft size,
+        so comparing multiple scales allows multiple resolutions.
+      mag_weight: Weight to compare linear magnitudes of spectrograms. Core
+        audio similarity loss. More sensitive to peak magnitudes than log
+        magnitudes.
+      logmag_weight: Weight to compare log magnitudes of spectrograms. Core
+        audio similarity loss. More sensitive to quiet magnitudes than linear
+        magnitudes.
+      name: Name of the module.
+    """
+    super().__init__(name=name)
+    self.fft_sizes = fft_sizes
+    self.loss_type_mag = 'FRO'
+    self.loss_type_loud = 'L1'
+    self.loss_type_logmag = 'L1'
+    self.mag_weight = mag_weight
+    self.logmag_weight = logmag_weight
+
+    self.spectrogram_ops = []
+    for size in self.fft_sizes:
+      spectrogram_op = functools.partial(spectral_ops.compute_mag, size=size)
+      self.spectrogram_ops.append(spectrogram_op)
+
+  def call(self, target_audio, audio, weights=None):
+    loss = 0.0
+
+    # Compute loss for each fft size.
+    for loss_op in self.spectrogram_ops:
+      target_mag = loss_op(target_audio)
+      value_mag = loss_op(audio)
+
+      loss_lin = mean_difference(
+          target_mag, value_mag, self.loss_type_mag, weights=weights)
+
+      target = spectral_ops.safe_log(target_mag)
+      value = spectral_ops.safe_log(value_mag)
+      loss_log = mean_difference(
+          target, value, self.loss_type_logmag, weights=weights)
+      
+      loss += (self.mag_weight * loss_lin + self.logmag_weight * loss_log)
+
+    return loss
 
 @gin.register
 class SpectralLoss(Loss):
