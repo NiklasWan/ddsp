@@ -391,7 +391,7 @@ def pad_or_trim_to_expected_length(vector,
   # Pick tensorflow or numpy.
   lib = tf if use_tf else np
 
-  is_1d = tf.shape(vector).size if use_tf else (len(vector.shape) == 1)
+  is_1d = tf.size(tf.shape(vector)) if use_tf else (len(vector.shape) == 1)
   vector = vector[lib.newaxis, :] if is_1d else vector
 
   # Pad missing samples
