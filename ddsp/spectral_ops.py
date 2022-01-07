@@ -260,7 +260,7 @@ def compute_loudness(audio,
   # Remove temporary batch dimension.
   loudness = loudness[0] if is_1d else loudness
 
-  audio_len = tf.shape(audio)[-1] if use_tf else audio.shape[-1]
+  audio_len = tf.cast(tf.shape(audio)[-1], dtype=tf.float32) if use_tf else audio.shape[-1]
 
   # Compute expected length of loudness vector
   n_secs = audio_len / float(
