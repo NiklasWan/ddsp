@@ -141,6 +141,8 @@ class SpectralLossRave(Loss):
                fft_sizes=(2048, 1024, 512, 256, 128),
                mag_weight=1.0,
                logmag_weight=1.0,
+               loudness_weight=1.0,
+               sample_rate=44100,
                name='spectral_loss_rave'):
     """Constructor, set loss weights of various components.
 
@@ -163,6 +165,8 @@ class SpectralLossRave(Loss):
     self.loss_type_logmag = 'L1'
     self.mag_weight = mag_weight
     self.logmag_weight = logmag_weight
+    self.loudness_weight = loudness_weight
+    self.sample_rate = sample_rate
 
     self.spectrogram_ops = []
     for size in self.fft_sizes:
@@ -186,6 +190,21 @@ class SpectralLossRave(Loss):
           target, value, self.loss_type_logmag, weights=weights)
       
       loss += (self.mag_weight * loss_lin + self.logmag_weight * loss_log)
+
+      if self.loudness_weight > 0:
+        if self.sample_rate == 44100:
+          frame_rate=300
+        elif self.sample_rate == 48000 or self.sample_rate == 16000 or self.sample_rate == 24000:
+          frame_rate = 250
+        else:
+          raise ValueError('Samplerate ({})Hz, must be '
+                          '"16000", "44100", "24000" or "48000"'.format(self.sample_rate))
+        target = spectral_ops.compute_loudness(target_audio, sample_rate=self.sample_rate, frame_rate=frame_rate, n_fft=2048,
+                                              use_tf=True)
+        value = spectral_ops.compute_loudness(audio, n_fft=2048, sample_rate=self.sample_rate, frame_rate=frame_rate, use_tf=True)
+        loss += self.loudness_weight * mean_difference(
+            target, value, self.loss_type_loud, weights=weights)
+
 
     return loss
 
