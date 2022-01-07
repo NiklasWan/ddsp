@@ -193,7 +193,7 @@ class SpectralLossRave(Loss):
 
       if self.loudness_weight > 0:
         if self.sample_rate == 44100:
-          frame_rate=300
+          frame_rate=245
         elif self.sample_rate == 48000 or self.sample_rate == 16000 or self.sample_rate == 24000:
           frame_rate = 250
         else:
