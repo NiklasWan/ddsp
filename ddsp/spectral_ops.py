@@ -260,8 +260,10 @@ def compute_loudness(audio,
   # Remove temporary batch dimension.
   loudness = loudness[0] if is_1d else loudness
 
+  audio_len = tf.shape(audio)[-1] if use_tf else audio.shape[-1]
+
   # Compute expected length of loudness vector
-  n_secs = audio.shape[-1] / float(
+  n_secs = audio_len / float(
       sample_rate)  # `n_secs` can have milliseconds
   expected_len = int(n_secs * frame_rate)
 
@@ -378,7 +380,7 @@ def pad_or_trim_to_expected_length(vector,
     `len_tolerance` to begin with.
   """
   expected_len = int(expected_len)
-  vector_len = int(vector.shape[-1])
+  vector_len = int(tf.shape(vector)[-1]) if use_tf else int(vector.shape[-1])
 
   if abs(vector_len - expected_len) > len_tolerance:
     # Ensure vector was close to expected length to begin with
@@ -389,7 +391,7 @@ def pad_or_trim_to_expected_length(vector,
   # Pick tensorflow or numpy.
   lib = tf if use_tf else np
 
-  is_1d = (len(vector.shape) == 1)
+  is_1d = tf.shape(vector).size if use_tf else (len(vector.shape) == 1)
   vector = vector[lib.newaxis, :] if is_1d else vector
 
   # Pad missing samples
